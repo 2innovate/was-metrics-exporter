@@ -16,7 +16,7 @@ At the time of writing this document we are supporting the following conversatio
 - Output to a JSON file
 - Output to an InfluxDb using InfluxDb's REST API
 
-### Invocing the script
+### Invoking the script
 The script can be invoked using the following parameters:
 ```
 Usage: processPerfServletData.py --help (this information) | [--xml|-x <perfServletXmlFile> | (--url |-u <perfServletUrl> | --seconds|-s <seconds> --wasUser <was_user> --wasPassword <wasPassword>]) [--json|-j <json_outfile>] [--cell|-c <was_cell_name>] [--noempty|-n] [--replace|-r] [--influxUrl|-i <url> --influxDb|-d <dbName>] [--omitSummary|-o [-U|--targetUser <user> -P|--targetPwd <password>]]
