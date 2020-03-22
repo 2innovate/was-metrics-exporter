@@ -62,7 +62,7 @@ def printUsage(scriptName):
     print "\t\t<--replace|-r>\t\t\treplace the <json_outfile> if the file exists. Defaults to false"
     print "\t\t<--omitSummary|-o>\t\tomit summary measurement like for example measurement for JDBC providers"
     print "\t\t<--influxUrl|-i>\t\trest URL for InfluxDb to which data should be posted"
-    print "\t\t<--influxDb|-d>\t\t\tinfluxDb database to which data should be posted"
+    print "\t\t<--influxDb|-d>\t\t\tinfluxDb database to which data should be posted. You might attach a retention policy like: \n\t\t\t\t\t\t\"CREATE RETENTION POLICY TWO_WEEKS ON pmidata DURATION 2w REPLICATION 1\""
     print "\t\t<--targetUser|-U>\t\tuser name to authenticate on the target plattform (for example influxDb)"
     print "\t\t<--targetPwd|-d>\t\tpassword being used to authenticate on the target plattform (for example influxDb)"
     print "\t\t<--wasUser>\t\t\tuser name to authenticate against WebSphere to retrieve the performance servlet data"
@@ -789,7 +789,8 @@ def processLeafNode(xmlNode, parentNodeNames):
 @l.logEntryExit
 def getStatsData(parentNodeNames, xmlNode):
     '''
-    Returns the recursive stats records from the current node
+    Returns the recursive stats records from the current node.
+    Note: The result might be a DictType or a ListType. Depending on the node type. If the node contains subnodes we returns a list otherwise a dictionary!
     '''
     l.logEntryExit("Entering: parentNodeNames: '%s'; xmlNode: '%s'" % (str(parentNodeNames), xmlNode.get("name")))
 
@@ -824,6 +825,7 @@ def getStatsData(parentNodeNames, xmlNode):
         ##
         ## We add dictionary only to the returned list if there are data
         if (len(subNodeStatsDict["perfdata"]) > 0):
+            l.debug("appending subNodeStatsDict: '%s'" % (str(json.dumps(subNodeStatsDict))))
             subStatNodeList.append(subNodeStatsDict)
 
         return subStatNodeList
@@ -846,7 +848,6 @@ def getNodes(wasCellName, root):
     serverName = None
     statName = None
     parentNodeNames = ""
-    rtnList = []
     statRtnList = []
     ##
     ## Check for a valid file via the root node tag (PerformanceMonitor)
@@ -883,11 +884,23 @@ def getNodes(wasCellName, root):
                         if (statNode.tag == "Stat"):
                             statName = statNode.get('name')
                             l.debug("Found child node with name: '%s'" % (statNode.get("name")))
-                            rtnList += getStatsData(parentNodeNames, statNode)
+
+                            debugList = getStatsData(parentNodeNames, statNode)
+                            if (isinstance(debugList, DictType)):
+                                l.debug("debugList is DictType")
+                                statRtnList.append(debugList)
+                            elif (isinstance(debugList, ListType)):
+                                l.debug("debugList is ListType")
+                                statRtnList += debugList
+                            else:
+                                l.debug("getStatsData returned neither DictType/ListType. Exiting ...")
+                                sys.exit(1)
+                            l.debug("JSON-0 debugList: '%s'" % (str(json.dumps(debugList))))
+                            l.debug("JSON-1 statRtnList: '%s'" % (str(json.dumps(statRtnList))))
         else:
             l.debug("Expected nodeNode.tag to be \"Node\" but got: '%s'" % (nodeNode.tag))
 
-    return rtnList
+    return statRtnList
 
 
 @l.logEntryExit
