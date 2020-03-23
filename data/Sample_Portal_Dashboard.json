@@ -252,7 +252,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Panel Title",
+      "title": "JDBC jdbc/wpdbDS",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -439,7 +439,7 @@
     "list": []
   },
   "time": {
-    "from": "now-6h",
+    "from": "now-2h",
     "to": "now"
   },
   "timepicker": {
