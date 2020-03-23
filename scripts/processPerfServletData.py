@@ -505,12 +505,12 @@ def getPerfServletData(perfServletUrl, wasUser=None, wasPassword=None):
         response = urllib2.urlopen(requestXml)
     except urllib2.HTTPError as e2:
         errorString = "Fetching performance servlet data failed with code: '%s' and return text: \n'%s'" % (e2.code, e2.read())
-        l.debug(errorString)
-        raise Exception, errorString
+        l.error(errorString)
+        rtnString = None
     except urllib2.URLError as e1:
         errorString = "Fetching performance servlet data failed with: '%s'" % (e1.reason)
-        l.debug(errorString)
-        raise Exception, errorString
+        l.error(errorString)
+        rtnString = None
     else:
         rtnString = response.read()
         l.debug("Performance servlet call returned '%d' bytes" % (len(rtnString)))
@@ -790,7 +790,7 @@ def processLeafNode(xmlNode, parentNodeNames):
 def getStatsData(parentNodeNames, xmlNode):
     '''
     Returns the recursive stats records from the current node.
-    Note: The result might be a DictType or a ListType. Depending on the node type. If the node contains subnodes we returns a list otherwise a dictionary!
+    Note: The result is a List of Dictionaries
     '''
     l.logEntryExit("Entering: parentNodeNames: '%s'; xmlNode: '%s'" % (str(parentNodeNames), xmlNode.get("name")))
 
@@ -832,9 +832,14 @@ def getStatsData(parentNodeNames, xmlNode):
 
     else:
         ##
-        ## No sub Stat nodes --> a leave found
+        ## No sub Stat nodes --> a leave found.
         l.debug("Leaf node: '%s' found" % (xmlNode.get("name")))
-        return processLeafNode(xmlNode, parentNodeNames)
+        subStatNodeList = []
+        leafNodeResult = processLeafNode(xmlNode, parentNodeNames)
+        ##
+        ## We return a list!
+        subStatNodeList.append(leafNodeResult)
+        return subStatNodeList
 
 
 @l.logEntryExit
@@ -886,15 +891,7 @@ def getNodes(wasCellName, root):
                             l.debug("Found child node with name: '%s'" % (statNode.get("name")))
 
                             debugList = getStatsData(parentNodeNames, statNode)
-                            if (isinstance(debugList, DictType)):
-                                l.debug("debugList is DictType")
-                                statRtnList.append(debugList)
-                            elif (isinstance(debugList, ListType)):
-                                l.debug("debugList is ListType")
-                                statRtnList += debugList
-                            else:
-                                l.debug("getStatsData returned neither DictType/ListType. Exiting ...")
-                                sys.exit(1)
+                            statRtnList += debugList
                             l.debug("JSON-0 debugList: '%s'" % (str(json.dumps(debugList))))
                             l.debug("JSON-1 statRtnList: '%s'" % (str(json.dumps(statRtnList))))
         else:
@@ -1058,37 +1055,44 @@ def main():
         else:
             ##
             ## Get the xml from the performance servlet URL
-            root1 = ET.fromstring(getPerfServletData(parmPerfServletUrl, parmWasUser, parmWasPwd))
-            l.debug("Processing XMl data from URL: '%s'" % (parmPerfServletUrl))
-
-        perfList = getNodes(parmWasCellName, root1)
+            pmiXmlDataString = getPerfServletData(parmPerfServletUrl, parmWasUser, parmWasPwd)
+            if (pmiXmlDataString != None):
+                root1 = ET.fromstring(pmiXmlDataString)
+                l.debug("Processing XMl data from URL: '%s'" % (parmPerfServletUrl))
+            else:
+                root1 = None
+                l.debug("No PMI data received from: '%s'" % (parmPerfServletUrl))
         ##
-        ## Should we remove empty "perfdata" lists in the dictionaries
-        if (parmNoEmpty == True):
-            emptyList = [x for x in perfList if len(x["perfdata"]) == 0]
-            numEmptyEntries = len(emptyList)
-            l.debug("Number of entries in the emptyList: '%d'" % numEmptyEntries)
-
-            oldLenght = len(perfList)
-            perfList = [x for x in perfList if len(x["perfdata"]) != 0]
-            newLenght = len(perfList)
-            l.debug("Removed empty entries. Old # of entries: '%d'; new # of entries: '%d'" % (oldLenght, newLenght))
-        if (parmOmitSummary == True):
-            perfList = removeSummaryData(perfList)
-        ##
-        ## Write data to the outfile if selected
-        ## l.debug("FINALLY: '%s'" % (str(json.dumps(perfList))))
-        if (parmJsonOutFileName != None):
-            outFile = open(parmJsonOutFileName, "w")
-            outFile.write(str(json.dumps(perfList)))
+        ## Only if we got an XML root node
+        if (root1 != None):
+            perfList = getNodes(parmWasCellName, root1)
             ##
-            ## Close outfile
-            outFile.close()
-        ##
-        ## If we have an influx Db to write to ...
-        if ((parmInfluxUrl != None) and (parmInfluxUrl != "")):
-            writeToInflux(parmInfluxUrl, parmInfluxDb, parmTargetUser, parmTargetPwd, perfList)
-            l.info("Data pushed to influx DB")
+            ## Should we remove empty "perfdata" lists in the dictionaries
+            if (parmNoEmpty == True):
+                emptyList = [x for x in perfList if len(x["perfdata"]) == 0]
+                numEmptyEntries = len(emptyList)
+                l.debug("Number of entries in the emptyList: '%d'" % numEmptyEntries)
+
+                oldLenght = len(perfList)
+                perfList = [x for x in perfList if len(x["perfdata"]) != 0]
+                newLenght = len(perfList)
+                l.debug("Removed empty entries. Old # of entries: '%d'; new # of entries: '%d'" % (oldLenght, newLenght))
+            if (parmOmitSummary == True):
+                perfList = removeSummaryData(perfList)
+            ##
+            ## Write data to the outfile if selected
+            ## l.debug("FINALLY: '%s'" % (str(json.dumps(perfList))))
+            if (parmJsonOutFileName != None):
+                outFile = open(parmJsonOutFileName, "w")
+                outFile.write(str(json.dumps(perfList)))
+                ##
+                ## Close outfile
+                outFile.close()
+            ##
+            ## If we have an influx Db to write to ...
+            if ((parmInfluxUrl != None) and (parmInfluxUrl != "")):
+                writeToInflux(parmInfluxUrl, parmInfluxDb, parmTargetUser, parmTargetPwd, perfList)
+                l.info("Data pushed to influx DB")
         ##
         ## If input was a file we break the loop otherwise we sleep
         if (parmServletXmlFile != None):
