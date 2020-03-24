@@ -1110,7 +1110,13 @@ def main():
 ##
 ## Some globals ...
 ##
-l.setLoglevel(l.LogLevels.ENTRY_EXIT)
+if (os.environ.get("TWOI_LOG_LEVEL") == None):
+    ##
+    ## Default log level
+    l.setLoglevel(l.LogLevels.INFO)
+else:
+    l.info("Environment variable 'TWOI_LOG_LEVEL' found. Setting Loglevel to: '%s'" % os.environ.get("TWOI_LOG_LEVEL"))
+    l.setLoglevelByName(os.environ.get("TWOI_LOG_LEVEL"))
 l.debug("Created default logger ...")
 ##
 ## Disable SSL Certificate verification
