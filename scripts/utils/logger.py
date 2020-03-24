@@ -3,6 +3,10 @@ from __future__ import nested_scopes
 import sys
 import os
 import re
+import pprint
+
+pp = pprint.PrettyPrinter(indent=2)
+
 
 
 # Loglevel definitions
@@ -327,20 +331,30 @@ def logEntryExit(func):
     # Alas, functools are not available in Python 2.1
     # @functools.wraps(func)
     def logDecorator(*args, **kwargs):
-        p = p1 = p2 = ""
-        if len(args):
-            p1 = repr(args)[1:-1]
-        if len(kwargs):
-            p2 = repr(kwargs)[1:-1]
-        if p1 or p2:
-            p = "[params]: %s %s" % (p1, p2)
-        debugEE(">>> %s >>>    %s", func.__name__, p)
+        # p = p1 = p2 = ""
+        # if len(args):
+        #     p1 = repr(args)[1:-1]
+        # if len(kwargs):
+        #     p2 = repr(kwargs)[1:-1]
+        # if p1 or p2:
+        #     p = "[params]: %s %s" % (p1, p2)
+        # debugEE(">>> %s >>>    %s", func.__name__, p)
+        if LogLevels.ENTRY_EXIT <= LOGLEVEL:
+            debugEE(">>> %s >>> ", func.__name__)
+            printf("----- FUNCTION HEADER START ---- ")
+            if args: pp.pprint(args)
+            if kwargs: pp.pprint(kwargs)
+            printf("----- FUNCTION HEADER END  ----- ")
         rc = func(*args, **kwargs)
-        rrc = str(rc)
-        if len(rrc) > 1000:
-            debugEE("<<< %s <<<  [returned]:  %s ...", func.__name__, rrc[:1000])
-        else:
-            debugEE("<<< %s <<<  [returned]:  %s", func.__name__, rrc)
+        if LogLevels.ENTRY_EXIT <= LOGLEVEL:
+            rrc = str(rc)
+            if len(rrc) > 100:
+                debugEE("<<< %s <<<  [returned] ", func.__name__)
+                pp.pprint(rc)
+                printf("")
+            else:
+                debugEE("<<< %s <<<  [returned]:  %s", func.__name__, rrc)
+                printf("")
         return rc
     return logDecorator
 
