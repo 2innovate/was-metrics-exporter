@@ -622,64 +622,23 @@ def outputFormatter(perfList, outFormat=None):
     '''
     formats data as specified by outFormat and returns a String
     '''
+    if outFormat.upper() == "DUMMY":
+        formatFunc = fmt.DummyFormatter()
 
-    if outFormat:
-        outLines = []
-        if outFormat.upper() == "DUMMY":
-            formatFunc = fmt.DummyFormatter()
-        elif outFormat.upper() == "SPLUNK":
-            formatFunc = fmt.SplunkFormatter()
-        else:
-            l.fatal("unknown output format")
+    elif outFormat.upper() == "SPLUNK":
+        formatFunc = fmt.SplunkFormatter()
+    
+    else:
+        l.fatal("unknown output formatter: %s", outFormat)
 
-        for perfListEntry in perfList:
-            line = formatFunc(perfListEntry)
-            outLines.append(line)
-            print "%s" % formatFunc(perfListEntry)
-        l.verbose("Number of rows returned: '%d'" % (len(outLines)))
-        return "\n".join(outLines)
-    ##
-    ## All the values are reported by the current time in ms
-    unixTime = str(time.time()).replace(".", "") + "0"
-    ##
-    ## influxdb write end-point with query string
-
-    ##
-    ## Number of rows inserted
-    rowCount = 0
-    postDataList = []
-    ##
-    ## iterate over the perflist and build the REST API string.
-    ## The "tags" is string of tags separated by NODE_SEPARATOR and the counters will be the fields
+    timeStamp = time.localtime()
+    outLines = []
     for perfListEntry in perfList:
-        ##
-        ## Get the tags string
-        xmlTagString = perfListEntry["tags"]
-        perfDataDictList = perfListEntry["perfdata"]
-        # l.info(perfListEntry)
-        ##
-        ## get the measure from the tags
-        measurement = getMeasurement(xmlTagString)
-        tagsString = getTagsString(xmlTagString)
-        fieldsString = getFieldsString(perfDataDictList)
-        tagList = tagsString.split(",")
-        fieldList = fieldsString.split(",")
-        if l.isDebugEnabled():
-            l.debug("Tag list:")
-            for f in tagList:
-                l.debug("-  %s", f)
-            l.debug("field list:")
-            for f in fieldList:
-                l.debug("-  %s", f)
-
-        fieldsString = " ".join(fieldList)
-        tagsString = " ".join(tagList)
-        postData = "{}-{} {} {}".format(wcvGetDate(), wcvGetTime(), tagsString, fieldsString)
-        print postData
-        postDataList.append(postData)
-
-    l.verbose("Number of rows returned: '%d'" % (len(postDataList)))
-    return "\n".join(postDataList)
+        line = formatFunc(perfListEntry, timeStamp)
+        outLines.append(line)
+        l.verbose(line)
+    l.verbose("Number of rows returned: '%d'" % (len(outLines)))
+    return "\n".join(outLines)
 
 
 '''
