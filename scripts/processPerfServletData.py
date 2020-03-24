@@ -624,6 +624,7 @@ def outputFormatter(perfList, outFormat=None):
     '''
 
     if outFormat:
+        outLines = []
         if outFormat.upper() == "DUMMY":
             formatFunc = fmt.DummyFormatter()
         elif outFormat.upper() == "SPLUNK":
@@ -632,9 +633,11 @@ def outputFormatter(perfList, outFormat=None):
             l.fatal("unknown output format")
 
         for perfListEntry in perfList:
+            line = formatFunc(perfListEntry)
+            outLines.append(line)
             print "%s" % formatFunc(perfListEntry)
-        return "not implemented yet"
-
+        l.verbose("Number of rows returned: '%d'" % (len(outLines)))
+        return "\n".join(outLines)
     ##
     ## All the values are reported by the current time in ms
     unixTime = str(time.time()).replace(".", "") + "0"
