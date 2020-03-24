@@ -30,7 +30,7 @@ def printUsage(scriptName):
                         [--influxUrl|-i <url> --influxDb|-d <dbName>]  [-U|--targetUser <user> -P|--targetPwd <password>]
 
                         [ --outputFile <file-name> ]
-                        [ --outputFormat  {{ "JSON" | "SPLUNK" }} ]
+                        [ --outputFormat  {{ "JSON" | "SPLUNK" | "DUMMY" }} ]
                         [--replace|-r] 
 
     whereby:
@@ -240,7 +240,7 @@ def checkParm(parmDict, scriptName):
     if outputFile:
         pass
     if outputFormat:
-        OUTPUT_FORMAT_LIST = ["SPLUNK", "JSON"]
+        OUTPUT_FORMAT_LIST = ["SPLUNK", "JSON", "DUMMY"]
         if outputFormat.upper() not in OUTPUT_FORMAT_LIST:
             raise Exception, 'output format must be on of: %s' % OUTPUT_FORMAT_LIST
     ##
