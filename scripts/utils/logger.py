@@ -7,6 +7,7 @@ import re
 
 # Loglevel definitions
 class LogLevels:
+    OFF = 0
     FATAL = 1
     ERROR = 2
     WARN = 3
@@ -102,6 +103,35 @@ def getStdColor():
 def setLoglevel(level):
     global LOGLEVEL
     LOGLEVEL = level
+
+
+def setLoglevelByName(logLevelName):
+    logLevelName = logLevelName.strip()
+    if (logLevelName == "FATAL"):
+        setLoglevel(LogLevels.FATAL)
+    elif (logLevelName == "ERROR"):
+        setLoglevel(LogLevels.ERROR)
+    elif (logLevelName == "WARN"):
+        setLoglevel(LogLevels.WARN)
+    elif (logLevelName == "INFO"):
+        setLoglevel(LogLevels.INFO)
+    elif (logLevelName == "VERBOSE"):
+        setLoglevel(LogLevels.VERBOSE)
+    elif (logLevelName == "DEBUG"):
+        logLevelName(LogLevels.DEBUG)
+    elif (logLevelName == "FINEST"):
+        logLevelName(LogLevels.FINEST)
+    elif ((logLevelName == "ENTRY_EXIT") or (logLevelName == "ENTR_EX")):
+        logLevelName(LogLevels.ENTRY_EXIT)
+    elif (logLevelName == "HELL"):
+        logLevelName(LogLevels.HELL)
+    elif (logLevelName == "OFF"):
+        logLevelName(LogLevels.OFF)
+    else:
+        ##
+        ## Invalid log level. Raise an exception
+        exceptionString = ("Invalid Loglevel name '%s' set! supported Loglevels are: '%s'" % (logLevelName, str(LogLevels.DESC)))
+        raise Exception, exceptionString
 
 
 def printLoglevel():
