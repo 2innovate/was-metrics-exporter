@@ -157,11 +157,22 @@ def DummyFormatter():
     def formatFields(fieldData):
         return "no field data"
 
-    def write(perfData, timestamp):
-        return "{} {} {}".format(
-            formatTimeStamp(timestamp),
-            formatTags(None),
-            formatFields(None))
+    def write(perfDataList, timestamp):
+        '''
+        main formatter function: returns a string of formatted entries
+        '''
+        entries = []
+        for perfEntry in perfDataList:
+            formattedEntry = "{} {} {}".format(
+                formatTimeStamp(timestamp),
+                formatTags(None),
+                formatFields(None)
+            )
+            entries.append(formattedEntry)
+            l.debug(formattedEntry)
+        l.verbose("Number of rows returned: %d" % (len(entries)))
+        returnedObj = "\n".join(entries)
+        return returnedObj
 
     return write
 
@@ -188,11 +199,22 @@ def SplunkFormatter():
         return " ".join(fieldList)
         # return "count=42 weight=101"
 
-    def write(perfData, timestamp):
-        data = perfData
-        return "{} {} {}".format(
-            formatTimeStamp(timestamp),
-            formatTags(perfData),
-            formatFields(perfData))
+    def write(perfDataList, timestamp):
+        '''
+        main formatter function: returns a string of formatted entries
+        '''
+        entries = []
+        for perfEntry in perfDataList:
+            formattedEntry = "{} {} {}".format(
+                formatTimeStamp(timestamp),
+                formatTags(perfEntry),
+                formatFields(perfEntry)
+                )
+            entries.append(formattedEntry)
+            l.debug(formattedEntry)
+
+        l.verbose("Number of rows returned: %d" % (len(entries)))
+        returnedObj = "\n".join(entries)
+        return returnedObj
 
     return write

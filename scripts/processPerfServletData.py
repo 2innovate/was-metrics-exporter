@@ -543,22 +543,16 @@ def outputFormatter(perfList, outFormat=None):
     formats data as specified by outFormat and returns a String
     '''
     if outFormat.upper() == "DUMMY":
-        formatFunc = fmt.DummyFormatter()
+        formatFunction = fmt.DummyFormatter()
 
     elif outFormat.upper() == "SPLUNK":
-        formatFunc = fmt.SplunkFormatter()
+        formatFunction = fmt.SplunkFormatter()
     
     else:
         l.fatal("unknown output formatter: %s", outFormat)
 
     timeStamp = time.localtime()
-    outLines = []
-    for perfListEntry in perfList:
-        line = formatFunc(perfListEntry, timeStamp)
-        outLines.append(line)
-        l.verbose(line)
-    l.verbose("Number of rows returned: '%d'" % (len(outLines)))
-    return "\n".join(outLines)
+    return formatFunction(perfList, timeStamp)
 
 
 '''
@@ -646,7 +640,9 @@ def main():
             ## append to log file in Splunk-like format "TS key1=value1 key2=value2 ..."
             if (parmOutFileName != None):
                     outFile = open(parmOutFileName, "w")
-                    outFile.write(outputFormatter(perfList, parmOutFormat))
+                    data = outputFormatter(perfList, parmOutFormat)
+                    l.verbose("formatted data: \n%s", data)
+                    outFile.write(data)
                     outFile.close()
 
         ##
