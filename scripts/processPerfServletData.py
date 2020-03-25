@@ -1104,7 +1104,11 @@ def main():
             else:
                 l.info("No valid sleep time (--seconds|-s)provided --> exiting")
                 break
-
+        ##
+        ## Get the current date / time for the check if we've reached the stoptime .. i.e. time to exit
+        curDate=str(datetime.datetime.now().date())
+        curTime=datetime.datetime.now().strftime("%H:%M:%S")
+        l.debug("curDate: '%s', curTime: '%s', endDate: '%s'" % (curDate, curTime, endDate))
 
 ###################################### E N D  OF M A I N ##########################################
 ##
