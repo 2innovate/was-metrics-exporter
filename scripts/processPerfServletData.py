@@ -196,86 +196,6 @@ def getFieldsString(perfDataDictList):
 
 
 @l.logEntryExit
-def buildQueryString(**kwargs):
-    '''
-    Returns the encoded query string for the keyword list
-    '''
-    debugString = ""
-    rtnString = ""
-    rtnDict = {}
-    ##
-    ## Build a debug string
-    for key, value in kwargs.items():
-        debugString += "'%s'='%s';" % (str(key), str(value))
-    l.debug("debugString: '%s'" % (debugString))
-    ##
-    ## Build the query String
-    for key, value in kwargs.items():
-        ##
-        ## Only if there is a value
-        if ((value != None) and (value != "")):
-            rtnDict[key] = value
-
-    l.debug("Query string unencoded: '%s'" % (str(rtnDict)))
-    rtnString = urllib.urlencode(rtnDict)
-    if (rtnString != ""):
-        rtnString = "?" + rtnString
-    l.debug("Query string encoded: '%s'" % (rtnString))
-    ##
-    ## Return the encoded string
-    return rtnString
-
-
-@l.logEntryExit
-def splitHttpUrlString(urlString):
-    '''
-    Takes an URL String like for example http://localhost:8086 and returns a tuple of (schema, host, port)
-    '''
-    l.debug("Splitting URL String: '%s'" % (urlString))
-    urlList = urlString.split(":")
-    urlSchema = urlList[0]
-    ##
-    ## Only http and https URLs are supported
-    if (not urlSchema in ("http", "https")):
-        l.error("The URL schema '%s' is not supported" % (urlSchema))
-        raise Exception, 'Unsupported URL schema found'
-    ##
-    ## Hostname is the second list entry after the ":"
-    urlHost = urlList[1].replace("/", "")
-    ##
-    ## Get the port or set the defauls port if none is provided
-    if (len(urlList) > 2):
-        urlPort = urlList[2].replace("/", "")
-    else:
-        if (urlSchema == HTTP_SCHEMA):
-            urlPort = '80'
-        elif(urlSchema == HTTPS_SCHEMA):
-            urlPort = '443'
-        else:
-            pass
-    l.debug("urlSchema: '%s'; urlHost: '%s'; urlPort: '%s'" % (urlSchema, urlHost, urlPort))
-
-    return (urlSchema, urlHost, urlPort)
-
-
-@l.logEntryExit
-def getHttpConnection(urlSchema, urlHost, urlPort):
-    '''
-    returns the HTTP connection object
-    '''
-    l.debug("urlSchema: '%s'; urlHost: '%s'; urlPort: '%s'" % (urlSchema, urlHost, urlPort))
-    if (urlSchema == HTTP_SCHEMA):
-        conn = httplib.HTTPConnection(urlHost, port=urlPort, timeout=3, strict=1)
-    else:
-        conn = httplib.HTTPSConnection(urlHost, port=urlPort, timeout=3, strict=1)
-    ##
-    ## Connection successfull?
-    ##
-    ## Return the connection object
-    return conn
-
-
-@l.logEntryExit
 def getUrlSchema(perfServletUrl):
     '''
     Returns the schema of an Url
@@ -554,7 +474,7 @@ def writeToInflux(parmInfluxUrl, parmInfluxDb, parmTargetUser, parmTargetPwd, pe
     '''
     l.debug("writeToInflux with the following parameters: \nparmInfluxUrl: '%s'\n parmInfluxDb: '%s'\n parmTargetUser: '%s'\n parmTargetPwd: '%s'\n len(perfList): : '%s'" % (parmInfluxUrl, parmInfluxDb, parmTargetUser, parmTargetPwd, len(perfList)))
     try:
-        (urlSchema, urlHost, urlPort) = splitHttpUrlString(parmInfluxUrl)
+        (urlSchema, urlHost, urlPort) = o.splitHttpUrlString(parmInfluxUrl)
     except Exception as e:
         raise Exception, sys.exc_info()[1]
     ##
@@ -563,7 +483,7 @@ def writeToInflux(parmInfluxUrl, parmInfluxDb, parmTargetUser, parmTargetPwd, pe
     ##
     ## influxdb write end-point with query string
     tmpUri = "/write"
-    tmpUri += buildQueryString(db=parmInfluxDb, precision="ms", p=parmTargetPwd, u=parmTargetUser)
+    tmpUri += o.buildQueryString(db=parmInfluxDb, precision="ms", p=parmTargetPwd, u=parmTargetUser)
     l.debug("Uri to /write Influx: '%s'" % (tmpUri))
 
     postHeaders = {"Content-type": "text/plain; charset=utf-8", "Accept": "text/plain"}
@@ -590,7 +510,7 @@ def writeToInflux(parmInfluxUrl, parmInfluxDb, parmTargetUser, parmTargetPwd, pe
         try:
             ##
             ## Get the HTTP Connection
-            httpConn = getHttpConnection(urlSchema, urlHost, urlPort)
+            httpConn = o.getHttpConnection(urlSchema, urlHost, urlPort)
             httpConn.request("POST", tmpUri, postData, postHeaders)
             httpResponse = httpConn.getresponse()
             responseData = httpResponse.read()
@@ -677,7 +597,7 @@ def main():
     l.info("Script: %s/%s" % (WCV_SCRIPT_PATH, WCV_SCRIPTNAME))
     l.info("Date = %s / Time = %s" % (wcvGetDate("/"), wcvGetTime(":")))
     l.info("%s" % (SEPARATOR_LINE))
-    
+
     ##
     ## parse CLI command line arguments
     l.debug("sys.argv=%s" % (sys.argv))
@@ -733,7 +653,7 @@ def main():
             ##
             ## Write data to the outfile if selected
             l.debug("FINALLY: '%s'" % (str(json.dumps(perfList))))
-            
+
             if (parmJsonOutFileName != None):
                 outFile = open(parmJsonOutFileName, "w")
                 outFile.write(str(json.dumps(perfList)))
@@ -752,7 +672,7 @@ def main():
                     outFile = open(parmOutFileName, "w")
                     outFile.write(outputFormatter(perfList, parmOutFormat))
                     outFile.close()
-                    
+
         ##
         ## If input was a file we break the loop otherwise we sleep
         if (parmServletXmlFile != None):
@@ -789,8 +709,6 @@ if (not os.environ.get('PYTHONHTTPSVERIFY', '') and getattr(ssl, '_create_unveri
 
 SEPARATOR_LINE = "=" * 120
 NODE_SEPARATOR = "|"
-HTTP_SCHEMA = "http"
-HTTPS_SCHEMA = "https"
 STATISTIC_CLASSIFICATION_LIST = ["CountStatistic", "AverageStatistic", "TimeStatistic", "RangeStatistic", "BoundedRangeStatistic"]
 TERMINATE_AT = "23:59:59"
 WCV_SCRIPTNAME = os.path.basename(__file__)

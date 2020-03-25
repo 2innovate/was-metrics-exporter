@@ -106,7 +106,7 @@ def setLoglevel(level):
 
 
 def setLoglevelByName(logLevelName):
-    logLevelName = logLevelName.strip()
+    logLevelName = logLevelName.upper().strip()
     if (logLevelName == "FATAL"):
         setLoglevel(LogLevels.FATAL)
     elif (logLevelName == "ERROR"):
