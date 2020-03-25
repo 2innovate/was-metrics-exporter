@@ -10,7 +10,7 @@ import time
 (False, True) = (0, 1)
 
 TAG_NAMES = ["cell", "node", "server", "j2eetype", "module", 
-             "label5", "label6", "label7", "label8", "label9"]
+             "label5", "label6", "label7", "label8", "label9", "label10", "label11", "label12", "label13", "label14", "label15"]
 
 STAT_SHORT_NAMES = {
     "ARD requests": "ard",
@@ -63,6 +63,8 @@ def getTagDataTuples(perfDataEntry):
     
     ### TODO: access WCV_SEPARATOR
     tagsList = rawTagString.split("|")
+    if len(tagsList) > len(TAG_NAMES):
+        l.fatal("you need more labels in TAG_NAMES!")
     
     rtnList = []
     for x in range(len(tagsList)):
