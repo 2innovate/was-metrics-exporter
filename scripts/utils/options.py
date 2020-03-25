@@ -6,6 +6,10 @@ import os
 import re
 import getopt
 import logger as l
+import json
+import urllib
+import urllib2
+import httplib
 
 # emulate Boolean
 (False, True) = (0, 1)
@@ -17,21 +21,21 @@ def printUsage(scriptName):
     print cmd usage
     '''
     usageStr = """
-    Usage: {scriptName} [ --help (this information) ] 
+    Usage: {scriptName} [ --help (this information) ]
 
-                        [ --xml |-x <perfServletXmlFile> 
+                        [ --xml |-x <perfServletXmlFile>
                         [ --url |-u <perfServletUrl>  [--seconds|-s <seconds>] [--wasUser <was_user> --wasPassword <wasPassword>] ]
-                        [ --cell|-c <was_cell_name>] 
+                        [ --cell|-c <was_cell_name>]
 
-                        [ --json|-j <json_outfile>] 
-                        [--noempty|-n] 
+                        [ --json|-j <json_outfile>]
+                        [--noempty|-n]
                         [--omitSummary|-o ]
 
                         [--influxUrl|-i <url> --influxDb|-d <dbName>]  [-U|--targetUser <user> -P|--targetPwd <password>]
 
                         [ --outputFile <file-name> ]
                         [ --outputFormat  {{ "JSON" | "SPLUNK" }} ]
-                        [--replace|-r] 
+                        [--replace|-r]
 
     whereby:
         <perfServletXmlFile>    name of the file with the WAS performance servlet output. Mutual exclusise with <perfServletXmlFile>"
@@ -50,7 +54,7 @@ def printUsage(scriptName):
         <--targetUser|-U>       user name to authenticate on the target platform (for example influxDb)"
         <--targetPwd|-d>        password being used to authenticate on the target platform (for example influxDb)"
         <--wasUser>             user name to authenticate against WebSphere to retrieve the performance servlet data"
-        <--wasPassword>         password o authenticate against WebSphere to retrieve the performance servlet data"
+        <--wasPassword>         password to authenticate against WebSphere to retrieve the performance servlet data"
         <--outputFile>          output filename"
         <--outputFormat>        output format"
     """
@@ -59,6 +63,38 @@ def printUsage(scriptName):
 
 SHORTOPTS = "hx:j:c:nri:d:u:os:U:P:f:O:"
 LONGOPTS = ["help", "xml=", "json=", "cell=", "noempty", "replace", "influxUrl=", "influxDb=", "url=", "omitSummary", "seconds=", "targetUser=", "targetPwd=", "wasUser=", "wasPassword=", "outputFile=", "outputFormat="]
+
+
+@l.logEntryExit
+def splitHttpUrlString(urlString):
+    '''
+    Takes an URL String like for example http://localhost:8086 and returns a tuple of (schema, host, port)
+    '''
+    l.debug("Splitting URL String: '%s'" % (urlString))
+    urlList = urlString.split(":")
+    urlSchema = urlList[0]
+    ##
+    ## Only http and https URLs are supported
+    if (not urlSchema in ("http", "https")):
+        l.error("The URL schema '%s' is not supported" % (urlSchema))
+        raise Exception, 'Unsupported URL schema found'
+    ##
+    ## Hostname is the second list entry after the ":"
+    urlHost = urlList[1].replace("/", "")
+    ##
+    ## Get the port or set the defauls port if none is provided
+    if (len(urlList) > 2):
+        urlPort = urlList[2].replace("/", "")
+    else:
+        if (urlSchema == HTTP_SCHEMA):
+            urlPort = '80'
+        elif(urlSchema == HTTPS_SCHEMA):
+            urlPort = '443'
+        else:
+            pass
+    l.debug("urlSchema: '%s'; urlHost: '%s'; urlPort: '%s'" % (urlSchema, urlHost, urlPort))
+
+    return (urlSchema, urlHost, urlPort)
 
 
 @l.logEntryExit
@@ -144,6 +180,54 @@ def getParmDict(opts, scriptName):
             sys.exit(1)
 
     return rtnDict
+
+
+@l.logEntryExit
+def getHttpConnection(urlSchema, urlHost, urlPort):
+    '''
+    returns the HTTP connection object
+    '''
+    l.debug("urlSchema: '%s'; urlHost: '%s'; urlPort: '%s'" % (urlSchema, urlHost, urlPort))
+    if (urlSchema == HTTP_SCHEMA):
+        conn = httplib.HTTPConnection(urlHost, port=urlPort, timeout=3, strict=1)
+    else:
+        conn = httplib.HTTPSConnection(urlHost, port=urlPort, timeout=3, strict=1)
+    ##
+    ## Connection successfull?
+    ##
+    ## Return the connection object
+    return conn
+
+
+@l.logEntryExit
+def buildQueryString(**kwargs):
+    '''
+    Returns the encoded query string for the keyword list
+    '''
+    debugString = ""
+    rtnString = ""
+    rtnDict = {}
+    ##
+    ## Build a debug string
+    for key, value in kwargs.items():
+        debugString += "'%s'='%s';" % (str(key), str(value))
+    l.debug("debugString: '%s'" % (debugString))
+    ##
+    ## Build the query String
+    for key, value in kwargs.items():
+        ##
+        ## Only if there is a value
+        if ((value != None) and (value != "")):
+            rtnDict[key] = value
+
+    l.debug("Query string unencoded: '%s'" % (str(rtnDict)))
+    rtnString = urllib.urlencode(rtnDict)
+    if (rtnString != ""):
+        rtnString = "?" + rtnString
+    l.debug("Query string encoded: '%s'" % (rtnString))
+    ##
+    ## Return the encoded string
+    return rtnString
 
 
 @l.logEntryExit
@@ -319,6 +403,10 @@ def checkParm(parmDict, scriptName):
             httpConn.request("GET", tmpUri)
             httpResponse = httpConn.getresponse()
             httpConn.close()
+        except NameError as e1:
+            errorString = "Failed to verify ping from influx, '%s'" % (
+                str(e1))
+            raise Exception, errorString
         except Exception as e2:
             errorString = "Failed to get ping from influx, '%s'" % (
                 e2.strerror)
@@ -475,3 +563,7 @@ def parmDictToTuple(parmDict):
     ## Return the variables
 
     return (parmServletXmlFile, parmPerfServletUrl, parmJsonOutFileName, parmWasCellName, parmNoEmpty, parmReplace, parmOmitSummary, parmInfluxUrl, parmInfluxDb, parmSeconds, parmTargetUser, parmTargetPwd, parmWasUser, parmWasPwd, parmOutfile, parmOutFormat)
+##
+## Globals
+HTTP_SCHEMA = "http"
+HTTPS_SCHEMA = "https"
