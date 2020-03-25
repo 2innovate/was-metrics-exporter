@@ -118,15 +118,15 @@ def setLoglevelByName(logLevelName):
     elif (logLevelName == "VERBOSE"):
         setLoglevel(LogLevels.VERBOSE)
     elif (logLevelName == "DEBUG"):
-        logLevelName(LogLevels.DEBUG)
+        setLoglevel(LogLevels.DEBUG)
     elif (logLevelName == "FINEST"):
-        logLevelName(LogLevels.FINEST)
+        setLoglevel(LogLevels.FINEST)
     elif ((logLevelName == "ENTRY_EXIT") or (logLevelName == "ENTR_EX")):
-        logLevelName(LogLevels.ENTRY_EXIT)
+        setLoglevel(LogLevels.ENTRY_EXIT)
     elif (logLevelName == "HELL"):
-        logLevelName(LogLevels.HELL)
+        setLoglevel(LogLevels.HELL)
     elif (logLevelName == "OFF"):
-        logLevelName(LogLevels.OFF)
+        setLoglevel(LogLevels.OFF)
     else:
         ##
         ## Invalid log level. Raise an exception
