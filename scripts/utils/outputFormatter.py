@@ -9,7 +9,7 @@ import time
 # emulate Boolean
 (False, True) = (0, 1)
 
-TAG_NAMES = ["cell", "node", "server", "j2eetype", "module", 
+TAG_NAMES = ["cell", "node", "server", "j2eetype", "module",
              "label5", "label6", "label7", "label8", "label9", "label10", "label11", "label12", "label13", "label14", "label15"]
 
 STAT_SHORT_NAMES = {
@@ -60,12 +60,12 @@ def getTagDataTuples(perfDataEntry):
     [ (tag1-name, tag1-value), (tag2-name, tag2-value), ... ]
     '''
     rawTagString = perfDataEntry["tags"]
-    
+
     ### TODO: access WCV_SEPARATOR
-    tagsList = rawTagString.split("|")
+    tagsList = rawTagString.split(NODE_SEPARATOR)
     if len(tagsList) > len(TAG_NAMES):
         l.fatal("you need more labels in TAG_NAMES!")
-    
+
     rtnList = []
     for x in range(len(tagsList)):
         tagName = TAG_NAMES[x]
@@ -218,3 +218,56 @@ def SplunkFormatter():
         return returnedObj
 
     return write
+
+
+@l.logEntryExit
+def InfluxFormatter():
+
+    @l.logEntryExit
+    def getMeasurement(perfData):
+        '''
+        Returns the measurement name based on the tagsString
+        '''
+        return perfData["tags"].split(NODE_SEPARATOR)[0]
+
+
+    def formatTags(perfData):
+        '''
+        returns a "key1=value1 key2=value2" string
+        '''
+        tagList = ["%s=%s" % (k, v) for (k, v) in getTagDataTuples(perfData)]
+        return ",".join(tagList)
+
+
+    def formatFields(perfData):
+        x = getFieldDataTuples(perfData)
+        fieldList = ["%s=%s" % (k, v) for (k, v) in x]
+        return ",".join(fieldList)
+        # return "count=42,weight=101"
+
+    def write(perfDataList, timestamp):
+        '''
+        main formatter function: returns a string of formatted entries
+        '''
+        unixTime = str(time.mktime(timestamp)).replace(".", "") + "00"
+        l.debug("influxFormatter.write: timestamp:'%s' , unixTime: '%s'", str(timestamp), unixTime)
+
+        entries = []
+        for perfEntry in perfDataList:
+            formattedEntry = "{},{} {} {}".format(
+                getMeasurement(perfEntry),
+                formatTags(perfEntry),
+                formatFields(perfEntry),
+                unixTime
+                )
+            entries.append(formattedEntry)
+            l.debug("Influx formattedEntry: '%s" % (formattedEntry))
+
+        l.verbose("Number of rows returned: %d" % (len(entries)))
+        returnedObj = "\n".join(entries)
+        return returnedObj
+
+    return write
+##
+## Some globals
+NODE_SEPARATOR = "|"

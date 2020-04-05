@@ -47,156 +47,6 @@ def wcvGetTime(sep=""):
 
 
 @l.logEntryExit
-def getNamesDict():
-    '''
-    Translate the statistics name as provided by the performance servlet to
-    a shorter name
-    '''
-    statNames = {}
-    statNames["ARD requests"] = "ard"
-    statNames["client"] = "client"
-    statNames["DCS Statistics"] = "dcs"
-    statNames["Durable Subscriptions"] = "dsubs"
-    statNames["Garbage Collection"] = "gc"
-    statNames["HAManager"] = "ham"
-    statNames["Interceptors"] = "interceptors"
-    statNames["JCA Connection Pools"] = "jca"
-    statNames["JVM Runtime"] = "jvm"
-    statNames["MessageStoreStats"] = "msgstore"
-    statNames["Monitor"] = "mon"
-    statNames["Object"] = "obj"
-    statNames["Object Pool"] = "objp"
-    statNames["ORB"] = "orb"
-    statNames["Queues"] = "queues"
-    statNames["Schedulers"] = "schedulers"
-    statNames["server"] = "server"
-    statNames["Servlet Session Manager"] = "session"
-    statNames["SipContainerModule"] = "sip"
-    statNames["StatGroup"] = "statgroup"
-    statNames["System Data"] = "system"
-    statNames["Thread"] = "thread"
-    statNames["Thread_Pool"] = "threadpool"
-    statNames["Thread Pools"] = "threadpools"
-    statNames["Topicspaces"] = "topic"
-    statNames["Transaction Manager"] = "txm"
-    statNames["Web Applications"] = "apps"
-    statNames["Web services"] = "ws"
-    statNames["Web services Gateway"] = "wsg"
-    statNames["xdProcessModule"] = "xd"
-
-    return statNames
-
-
-@l.logEntryExit
-def translateStatName(statName):
-    '''
-    Gets the name for the stat as provided by the servlet and returns the translated
-    name as per getNamesDict(). If the name is not in the getNamesDict() we return
-    the name untranslated
-    '''
-    statNamesDict = getNamesDict()
-    if (statNamesDict.get(statName) != None):
-        return statNamesDict[statName]
-    else:
-        return statName
-
-
-@l.logEntryExit
-def getMeasurement(tagsString):
-    '''
-    Returns the measurement name based on the tagsString
-    '''
-    return tagsString.split(NODE_SEPARATOR)[0]
-
-
-@l.logEntryExit
-def getTagsString(tagsString):
-    '''
-    Builds the tags String for the influx DB write
-    '''
-    rtnString = ""
-    tagsList = tagsString.split(NODE_SEPARATOR)
-
-    for x in range(len(tagsList)):
-        if (x == 0):
-            rtnString += ",cell=" + tagsList[x].replace(" ", "_")
-        elif(x==1):
-            rtnString += ",node=" + tagsList[x].replace(" ", "_")
-        elif(x==2):
-            rtnString += ",server=" + tagsList[x].replace(" ", "_")
-        elif(x==3):
-            rtnString += ",j2eetype=" + tagsList[x].replace(" ", "_")
-        elif(x==4):
-            rtnString += ",module=" + translateStatName(tagsList[x]).replace(" ", "_")
-        else:
-            labelName = "label" + str(x)
-            rtnString += "," + labelName + "=" + tagsList[x].replace(" ", "_")
-
-    l.debug("influx DB tags string: '%s'" % (rtnString))
-    return rtnString
-
-
-@l.logEntryExit
-def getFieldString(perfDataDict):
-    '''
-    Returns the string with the fields and values to be added to the influx DB
-    '''
-    rtnString = ""
-    perfName = perfDataDict["name"].replace(" ", "_")
-    if (perfDataDict["classificaton"] == "CountStatistic"):
-        rtnString += perfName + ".count" + "=" + perfDataDict["count"]
-    elif (perfDataDict["classificaton"] == "AverageStatistic"):
-        rtnString += perfName + ".count" + "=" + perfDataDict["count"]
-        rtnString += "," + perfName + ".max" + "=" + perfDataDict["max"]
-        rtnString += "," + perfName + ".mean" + "=" + perfDataDict["mean"]
-        rtnString += "," + perfName + ".min" + "=" + perfDataDict["min"]
-        rtnString += "," + perfName + ".total" + "=" + perfDataDict["total"]
-        rtnString += "," + perfName + ".sumOfSquares" + "=" + perfDataDict["sumOfSquares"]
-    elif (perfDataDict["classificaton"] == "TimeStatistic"):
-        rtnString += perfName + ".max" + "=" + perfDataDict["max"]
-        rtnString += "," + perfName + ".totalTime" + "=" + perfDataDict["totalTime"]
-        rtnString += "," + perfName + ".min" + "=" + perfDataDict["min"]
-    elif (perfDataDict["classificaton"] == "RangeStatistic"):
-        rtnString += perfName + ".highWaterMark" + "=" + perfDataDict["highWaterMark"]
-        rtnString += "," + perfName + ".integral" + "=" + perfDataDict["integral"]
-        rtnString += "," + perfName + ".lowWaterMark" + "=" + perfDataDict["lowWaterMark"]
-        rtnString += "," + perfName + ".mean" + "=" + perfDataDict["mean"]
-        rtnString += "," + perfName + ".value" + "=" + perfDataDict["value"]
-    elif (perfDataDict["classificaton"] == "BoundedRangeStatistic"):
-        rtnString += perfName + ".highWaterMark" + "=" + perfDataDict["highWaterMark"]
-        rtnString += "," + perfName + ".integral" + "=" + perfDataDict["integral"]
-        rtnString += "," + perfName + ".lowWaterMark" + "=" + perfDataDict["lowWaterMark"]
-        rtnString += "," + perfName + ".lowerBound" + "=" + perfDataDict["lowerBound"]
-        rtnString += "," + perfName + ".mean" + "=" + perfDataDict["mean"]
-        rtnString += "," + perfName + ".upperBound" + "=" + perfDataDict["upperBound"]
-        rtnString += "," + perfName + ".value" + "=" + perfDataDict["value"]
-    else:
-        l.error("Invalid classificaton in perfDataDict found: '%s'. Exiting ..." % (perfDataDict["classificaton"]))
-        sys.exit(1)
-
-    l.debug("Returning field string: \n'%s'\n for performance data dictionary:\n'%s'" % (rtnString, str(perfDataDict)))
-    return rtnString
-
-
-@l.logEntryExit
-def getFieldsString(perfDataDictList):
-    '''
-    Returns the string with the fields and values to be added to the influx DB
-    '''
-    rtnString = ""
-    for dataDict in perfDataDictList:
-        rtnString += ',' + getFieldString(dataDict)
-
-    ##
-    ## If we have a leading "," we remove it
-    if (rtnString.startswith(",")):
-        rtnString = rtnString[1:]
-
-    l.debug("Returning fields string: \n'%s'" % (rtnString))
-    return rtnString
-
-
-@l.logEntryExit
 def getUrlSchema(perfServletUrl):
     '''
     Returns the schema of an Url
@@ -479,9 +329,6 @@ def writeToInflux(parmInfluxUrl, parmInfluxDb, parmTargetUser, parmTargetPwd, pe
     except Exception as e:
         raise Exception, sys.exc_info()[1]
     ##
-    ## All the values are reported by the current time in ms
-    unixTime = str(time.time()).replace(".", "") + "0"
-    ##
     ## influxdb write end-point with query string
     tmpUri = "/write"
     tmpUri += o.buildQueryString(db=parmInfluxDb, precision="ms", p=parmTargetPwd, u=parmTargetUser)
@@ -492,19 +339,16 @@ def writeToInflux(parmInfluxUrl, parmInfluxDb, parmTargetUser, parmTargetPwd, pe
     ## Number of rows inserted
     rowCount = 0
     ##
+    ## Format the output as a string
+    data = outputFormatter(perfList, outFormat="INFLUX")
+    l.verbose("formatted influx data: \n%s", data)
+    ##
+    ## outputFormatter returns a string of the data separated by \n per line
+    postDataDict = data.split("\n")
+    ##
     ## iterate over the perflist and build the REST API string.
     ## The "tags" is string of tags separated by NODE_SEPARATOR and the counters will be the fields
-    for perfListEntry in perfList:
-        ##
-        ## Get the tags string
-        xmlTagString = perfListEntry["tags"]
-        perfDataDictList = perfListEntry["perfdata"]
-        ##
-        ## get the measure from the tags
-        measurement = getMeasurement(xmlTagString)
-        tagsString = getTagsString(xmlTagString)
-        fieldsString = getFieldsString(perfDataDictList)
-        postData = measurement + tagsString + " " + fieldsString + " " + unixTime
+    for postData in postDataDict:
         l.debug("POST data for write end-point: '%s'" % (postData))
         ##
         ##
@@ -538,16 +382,33 @@ def writeToInflux(parmInfluxUrl, parmInfluxDb, parmTargetUser, parmTargetPwd, pe
 
 
 @l.logEntryExit
-def outputFormatter(perfList, outFormat=None):
+def outputFormatter(perfList, **kwargs):
     '''
-    formats data as specified by outFormat and returns a String
+    formats data as specified by outFormat passed in via **kwargs and returns a String. Supported keywords are:
+    outFormat
     '''
+    outFormat=None
+    debugString=""
+
+    for key, value in kwargs.items():
+        debugString += "'%s'='%s';" % (str(key), str(value))
+        if (key == "outFormat"):
+            outFormat = value
+        else:
+            l.error("Unsupported key '%s' with value '%s' passed. Exiting ..." % (key, value))
+            sys.exit(1)
+
+    l.debug("outputFormatter kwargs: '%s'" % (debugString))
+
     if outFormat.upper() == "DUMMY":
         formatFunction = fmt.DummyFormatter()
 
     elif outFormat.upper() == "SPLUNK":
         formatFunction = fmt.SplunkFormatter()
-    
+
+    elif outFormat.upper() == "INFLUX":
+        formatFunction = fmt.InfluxFormatter()
+
     else:
         l.fatal("unknown output formatter: %s", outFormat)
 
@@ -640,7 +501,7 @@ def main():
             ## append to log file in Splunk-like format "TS key1=value1 key2=value2 ..."
             if (parmOutFileName != None):
                     outFile = open(parmOutFileName, "w")
-                    data = outputFormatter(perfList, parmOutFormat)
+                    data = outputFormatter(perfList, outFormat=parmOutFormat)
                     l.verbose("formatted data: \n%s", data)
                     outFile.write(data)
                     outFile.close()
