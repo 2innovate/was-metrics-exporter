@@ -1,0 +1,51 @@
+##
+## docker exec -it $(docker ps -aq --filter "name=influx") bash
+## docker exec -it $(docker ps -aq --filter "name=grafana") bash
+##
+version: '3'
+services:
+##
+## Influx
+  influx:
+    image: influxdb:latest
+    container_name: influx
+    entrypoint: /entrypoint.sh
+    command: -config /etc/influxdb/influxdb.conf
+    ports:
+      - "8086:8086"
+    hostname: influx
+    restart: unless-stopped
+    environment:
+      INFLUXDB_HTTP_AUTH_ENABLED: "true"
+      INFLUXDB_ADMIN_USER: admin
+      INFLUXDB_ADMIN_PASSWORD: start123.
+    volumes:
+      - /etc/influxdb/scripts:/docker-entrypoint-initdb.d
+      - /etc/influxdb/influxdb.conf:/etc/influxdb/influxdb.conf
+      - /var/lib/influxdb:/var/lib/influxdb
+    networks:
+      - influx_grafana
+##
+## Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    hostname: grafana
+    restart: unless-stopped
+    environment:
+      GF_USER: "admin"
+      GF_PASSWORD: start123.
+    volumes:
+      - /2tmp/sitespeed/grafana:/var/lib/grafana
+    networks:
+      - influx_grafana
+
+#    depends_on:
+#    - influx
+
+networks:
+  influx_grafana:
+    driver: bridge
+    # external: true
