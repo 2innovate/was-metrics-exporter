@@ -35,7 +35,8 @@ def printUsage(scriptName):
 
                         [ --outputFile <file-name> ]
                         [ --outputFormat  {{ "JSON" | "SPLUNK" | "DUMMY" }} ]
-                        [--replace|-r] 
+                        [ --replace|-r]
+                        [ --outputConfig <config-file-name> ]
 
     whereby:
         <perfServletXmlFile>    name of the file with the WAS performance servlet output. Mutual exclusise with <perfServletXmlFile>"
@@ -56,13 +57,57 @@ def printUsage(scriptName):
         <--wasUser>             user name to authenticate against WebSphere to retrieve the performance servlet data"
         <--wasPassword>         password to authenticate against WebSphere to retrieve the performance servlet data"
         <--outputFile>          output filename"
-        <--outputFormat>        output format"
+        <--outputConfig>        configuration file name to configure output columns"
     """
     print(usageStr.format(scriptName=scriptName))
 
 
 SHORTOPTS = "hx:j:c:nri:d:u:os:U:P:f:O:"
-LONGOPTS = ["help", "xml=", "json=", "cell=", "noempty", "replace", "influxUrl=", "influxDb=", "url=", "omitSummary", "seconds=", "targetUser=", "targetPwd=", "wasUser=", "wasPassword=", "outputFile=", "outputFormat="]
+LONGOPTS = ["help", "xml=", "json=", "cell=", "noempty", "replace", "influxUrl=", "influxDb=", "url=", "omitSummary", "seconds=", "targetUser=", "targetPwd=", "wasUser=", "wasPassword=", "outputFile=", "outputFormat=", "outputConfig="]
+
+
+@l.logEntryExit
+def getUrlSchema(perfServletUrl):
+    '''
+    Returns the schema of an Url
+    '''
+    return re.sub(r"^(.*?):.*", r"\1", perfServletUrl)
+
+
+@l.logEntryExit
+def getHostFromUrl(perfServletUrl):
+    '''
+    Returns the host of an Url
+    '''
+    return re.sub(r"^.*?\/\/(.*?)[:\/].*", r"\1", perfServletUrl)
+
+
+@l.logEntryExit
+def getPortFromUrl(perfServletUrl):
+    '''
+    Returns the port of an Url
+    '''
+    l.debug("perfServletUrl is: '%s'" % (perfServletUrl))
+    port = re.sub(r"^.*?\/\/.*?:([0-9]*?)(\/.*)?", r"\1", perfServletUrl)
+    l.debug("port is: '%s'" % (port))
+    if (port == perfServletUrl):
+        return None
+    else:
+        return port
+
+
+@l.logEntryExit
+def getUriFromUrl(nexusUrl):
+    '''
+    Returns the URI of an Url
+    '''
+    uri = re.sub(r"^.*?\/\/.*?[:0-9]?\/(.*)$", r"\1", nexusUrl)
+    if (uri == nexusUrl):
+        return ""
+    else:
+        if (not uri.startswith("/")):
+            uri = "/" + uri
+        return uri
 
 
 @l.logEntryExit
@@ -71,21 +116,22 @@ def splitHttpUrlString(urlString):
     Takes an URL String like for example http://localhost:8086 and returns a tuple of (schema, host, port)
     '''
     l.debug("Splitting URL String: '%s'" % (urlString))
-    urlList = urlString.split(":")
-    urlSchema = urlList[0]
+
+    urlSchema = getUrlSchema(urlString)
+    l.debug("urlSchema='%s'" % (urlSchema))
     ##
     ## Only http and https URLs are supported
     if (not urlSchema in ("http", "https")):
         l.error("The URL schema '%s' is not supported" % (urlSchema))
         raise Exception, 'Unsupported URL schema found'
-    ##
-    ## Hostname is the second list entry after the ":"
-    urlHost = urlList[1].replace("/", "")
+
+    urlHost = getHostFromUrl(urlString)
+    l.debug("urlHost='%s'" % (urlHost))
+    urlPort = getPortFromUrl(urlString)
+    l.debug("urlPort='%s'" % (urlPort))
     ##
     ## Get the port or set the defauls port if none is provided
-    if (len(urlList) > 2):
-        urlPort = urlList[2].replace("/", "")
-    else:
+    if not urlPort:
         if (urlSchema == HTTP_SCHEMA):
             urlPort = '80'
         elif(urlSchema == HTTPS_SCHEMA):
@@ -174,6 +220,8 @@ def getParmDict(opts, scriptName):
             rtnDict["outputFile"] = value
         elif option in ("--outputFormat", "-O"):
             rtnDict["outputFormat"] = value
+        elif option in ("--outputConfig"):
+            rtnDict["outputConfig"] = value
 
         else:
             l.error("Unsupported option '%s' provided. Exiting ..." % (option))
@@ -236,7 +284,7 @@ def checkParm(parmDict, scriptName):
     Checks and verifies the provided parameters
     '''
     l.debug("Start checking parameters")
-    xml = jsonFile = influxUrl = influxDb = url = targetUser = targetPwd = wasUser = wasPassword = outputFile = outputFormat = ""
+    xml = jsonFile = influxUrl = influxDb = url = targetUser = targetPwd = wasUser = wasPassword = outputFile = outputFormat = outputConfig = ""
 
     for parmKey in parmDict.keys():
         l.debug("parmKey: '%s'; parmValue: '%s'" %
@@ -316,6 +364,11 @@ def checkParm(parmDict, scriptName):
                 raise Exception, "Parameter --outputFormat requires a value ..."
             else:
                 outputFormat = parmDict[parmKey]
+        elif (parmKey == "outputConfig"):
+            if (parmDict[parmKey] == None):
+                raise Exception, "Parameter --outputConfig requires a value ..."
+            else:
+                outputConfig = parmDict[parmKey]
         else:
             l.error("Unsupported option '%s' provided. Exiting ..." % (parmKey))
             sys.exit(1)
@@ -323,6 +376,12 @@ def checkParm(parmDict, scriptName):
     ## If we get an outputFile/Format:
     if outputFile:
         pass
+    ##
+    ## outputConfig file must exist
+    if outputConfig:
+        if not os.path.isfile(outputConfig):
+            raise Exception, 'Output config file "%s" does not exist' % outputConfig
+
     if outputFormat:
         OUTPUT_FORMAT_LIST = ["SPLUNK", "JSON", "DUMMY"]
         if outputFormat.upper() not in OUTPUT_FORMAT_LIST:
@@ -383,7 +442,7 @@ def checkParm(parmDict, scriptName):
         raise Exception, 'targetUser and targetPwd must be specified together'
     ##
     ## If we have a wasUser we need a wasPassword as well and vice versa
-    if ((wasUser != "") and ((wasPassword == None) or (wasPassword == ""))) or ((wasPassword != "") and ((targetUser == None) or (targetUser == ""))):
+    if ((wasUser != "") and ((wasPassword == None) or (wasPassword == ""))) or ((wasPassword != "") and ((wasUser == None) or (wasUser == ""))):
         raise Exception, 'wasUser and wasPassword must be specified together'
     ##
     ## Validata influxDb URL if provided
@@ -469,7 +528,7 @@ def parmDictToTuple(parmDict):
     ##
     ## Key values for the parameters dictonary
     parmKeyList = ["help", "xml", "json", "cell", "noempty", "replace", "influxUrl",
-                   "influxDb", "omitSummary", "url", "seconds", "user", "password", "wasUser", "wasPassword", "outputFile", "outputFormat"]
+                   "influxDb", "omitSummary", "url", "seconds", "user", "password", "wasUser", "wasPassword", "outputFile", "outputFormat", "outputConfig"]
     ##
     ## Copy the parameter values to the variables
     for key in parmKeyList:
@@ -557,12 +616,18 @@ def parmDictToTuple(parmDict):
             else:
                 parmOutFormat = None
             l.debug("parmOutFormat=%s" % (parmOutFormat))
+        elif (key == "outputConfig"):
+            if (parmDict.get(key) != None):
+                parmOutConfig = parmDict[key]
+            else:
+                parmOutConfig = None
+            l.debug("parmOutConfig=%s" % (parmOutConfig))
         else:
             pass
     ##
     ## Return the variables
 
-    return (parmServletXmlFile, parmPerfServletUrl, parmJsonOutFileName, parmWasCellName, parmNoEmpty, parmReplace, parmOmitSummary, parmInfluxUrl, parmInfluxDb, parmSeconds, parmTargetUser, parmTargetPwd, parmWasUser, parmWasPwd, parmOutfile, parmOutFormat)
+    return (parmServletXmlFile, parmPerfServletUrl, parmJsonOutFileName, parmWasCellName, parmNoEmpty, parmReplace, parmOmitSummary, parmInfluxUrl, parmInfluxDb, parmSeconds, parmTargetUser, parmTargetPwd, parmWasUser, parmWasPwd, parmOutfile, parmOutFormat, parmOutConfig)
 ##
 ## Globals
 HTTP_SCHEMA = "http"

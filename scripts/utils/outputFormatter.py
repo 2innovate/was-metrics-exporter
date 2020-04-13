@@ -12,6 +12,12 @@ import time
 TAG_NAMES = ["cell", "node", "server", "j2eetype", "module",
              "label5", "label6", "label7", "label8", "label9", "label10", "label11", "label12", "label13", "label14", "label15"]
 
+COUNTSTATISTIC_VALUES = ["count"]
+AVERAGESTATISTIC_VALUES = ["count", "max", "min", "mean", "total", "sumOfSquares"]
+TIMESTATISTIC_VALUES = ["min", "max", "totalTime"]
+RANGESTATISTIC_VALUES = ["highWaterMark", "lowWaterMark", "integral", "mean", "value"]
+BOUNDEDRANGESTATISTIC_VALUES = ["highWaterMark", "lowWaterMark", "integral", "lowerBound", "upperBound", "mean", "value"]
+
 STAT_SHORT_NAMES = {
     "ARD requests": "ard",
     "client": "client",
@@ -54,6 +60,55 @@ def translateStatName(statName):
 
 
 @l.logEntryExit
+def getJ2eeType(tags, toUpper = False):
+    '''
+    Returns the j2eetype of the tags string
+    '''
+    keyIndex = TAG_NAMES.index(WHITELIST_TAG_KEY)
+    tagsList = tags.split(NODE_SEPARATOR)
+    if (toUpper == True):
+        return tagsList[keyIndex].upper()
+    else:
+        return tagsList[keyIndex]
+
+
+@l.logEntryExit
+def whitelistEntryForJ2eeType(perfDataEntry, whitelistDict = None):
+    '''
+    Returns an empty {} if there is no whitelist i.e. all data is to be returned.
+    Returns None if the perfDataEntry is to be ignored
+    Returns the whitelist dictionary of the white listed j2eetype
+    '''
+
+    keyIndex = TAG_NAMES.index(WHITELIST_TAG_KEY)
+    if (whitelistDict):
+        whitelistKeys = whitelistDict.keys()
+        l.debug("whitelist keys are: '%s'" % (str(whitelistKeys)))
+        tagsList = perfDataEntry["tags"].split(NODE_SEPARATOR)
+        if (getJ2eeType(perfDataEntry["tags"], True) in whitelistKeys):
+            l.debug("Returning whitelist dict for j2eetype")
+            return whitelistDict[tagsList[keyIndex].upper()]
+        else:
+            return None
+    else:
+        ##
+        ## No whitelist everything is added to the output
+        l.debug ("No whitelist provided! Returning {}!")
+        return {}
+
+
+@l.logEntryExit
+def whitelistedJ2eeType(perfDataEntry, whitelistDict = None):
+    '''
+    Returns True if the J2eeType of the tags is whiteListed; False otherwise
+    '''
+    if (whitelistEntryForJ2eeType(perfDataEntry, whitelistDict) is not None):
+        return True
+    else:
+        return False
+
+
+@l.logEntryExit
 def getTagDataTuples(perfDataEntry):
     '''
     returns list of tag tuples.
@@ -61,7 +116,6 @@ def getTagDataTuples(perfDataEntry):
     '''
     rawTagString = perfDataEntry["tags"]
 
-    ### TODO: access WCV_SEPARATOR
     tagsList = rawTagString.split(NODE_SEPARATOR)
     if len(tagsList) > len(TAG_NAMES):
         l.fatal("you need more labels in TAG_NAMES!")
@@ -70,7 +124,7 @@ def getTagDataTuples(perfDataEntry):
     for x in range(len(tagsList)):
         tagName = TAG_NAMES[x]
         tagValue = tagsList[x].replace(" ", "_")
-        if(x == 4):
+        if(x == 3):
             tagValue = translateStatName(tagValue)
         rtnList.append((tagName, tagValue))
     l.debug("raw  tags data tuples list: '%s'", rtnList)
@@ -78,7 +132,51 @@ def getTagDataTuples(perfDataEntry):
 
 
 @l.logEntryExit
-def getFieldDataHelper(perfDataDict):
+def isWhitelisted(j2eeType, perfName, perfValueName, whitelistDict=None):
+    '''
+    Checks of the perfName.perfValueName is supported as per the whitelist dictionarey.
+    Returns True if the column should be added to the output strean. False otherwise
+    '''
+    ##
+    ## convert all to upper case
+    j2eeType = j2eeType.upper()
+    perfName = perfName.upper()
+    perfValueName = perfValueName.upper()
+    l.debug("isWhitelisted: j2eeType: '%s', perfName: '%s', perfValueName: '%s', whitelistDict: '%s'" %
+        (j2eeType, perfName, perfValueName, str(whitelistDict)))
+    ##
+    ## whiltelistDict is None or {}
+    if (not whitelistDict):
+        l.debug("whitelistDict is None or empty --> returning True")
+        return True
+    else:
+        l.debug("whitelistDict is NOT None or empty")
+        ##
+        ## if the j2eeType is missing in the whitelistDict this type should be omitted
+        j2eeTypeDict = whitelistDict.get(j2eeType)
+        l.debug("Whitelist for j2eeType: '%s' is: '%s'" % (j2eeType, str(j2eeTypeDict)))
+        if (j2eeTypeDict == None):
+            return False
+        else:
+            ##
+            ## If there are no specific values for the j2eeType we include all values
+            if (len(j2eeTypeDict.keys()) == 0):
+                l.debug("Retruning True as len(j2eeTypeDict.keys() = 0")
+                return True
+            else:
+                ##
+                ## If the specific counter is missing or not 'true' wen omit the value
+                j2eeTypeDictKey = "%s.%s" % (perfName, perfValueName)
+                if ((j2eeTypeDict.get(j2eeTypeDictKey) == None) or (j2eeTypeDict.get(j2eeTypeDictKey).upper() != "TRUE")):
+                    l.debug("Returning False as j2eeTypeDict.get(%s) is: '%s'" % (j2eeTypeDictKey, j2eeTypeDict.get(j2eeTypeDictKey)))
+                    return False
+                else:
+                    l.debug("Returning True as j2eeTypeDict.get(%s) is: '%s'" % (j2eeTypeDictKey, j2eeTypeDict.get(j2eeTypeDictKey)))
+                    return True
+
+
+@l.logEntryExit
+def getFieldDataHelper(perfDataDict, perfJ2eeType, whitelistDict = None):
     '''
     Returns the string with the fields and values
     '''
@@ -90,55 +188,49 @@ def getFieldDataHelper(perfDataDict):
     perfName = perfDataDict["name"].replace(" ", "_")
 
     if (perfDataDict["classificaton"] == "CountStatistic"):
-        # rtnList.append((perfName + ".count", perfDataDict["count"]))
-        rtnList.append(makeTuple(perfDataDict, perfName, "count"))
+        for value in COUNTSTATISTIC_VALUES:
+            if (isWhitelisted(perfJ2eeType, perfDataDict["name"], value, whitelistDict) == True):
+                # rtnList.append((perfName + ".count", perfDataDict["count"]))
+                rtnList.append(makeTuple(perfDataDict, perfName, value))
 
     elif (perfDataDict["classificaton"] == "AverageStatistic"):
-        rtnList.append(makeTuple(perfDataDict, perfName, "count"))
-        rtnList.append(makeTuple(perfDataDict, perfName, "max"))
-        rtnList.append(makeTuple(perfDataDict, perfName, "min"))
-        rtnList.append(makeTuple(perfDataDict, perfName, "mean"))
-        rtnList.append(makeTuple(perfDataDict, perfName, "total"))
-        rtnList.append(makeTuple(perfDataDict, perfName, "sumOfSquares"))
-
+        for value in AVERAGESTATISTIC_VALUES:
+            if (isWhitelisted(perfJ2eeType, perfDataDict["name"], value, whitelistDict) == True):
+                rtnList.append(makeTuple(perfDataDict, perfName, value))
     elif (perfDataDict["classificaton"] == "TimeStatistic"):
-        rtnList.append(makeTuple(perfDataDict, perfName, "min"))
-        rtnList.append(makeTuple(perfDataDict, perfName, "max"))
-        rtnList.append(makeTuple(perfDataDict, perfName, "totalTime"))
+        for value in TIMESTATISTIC_VALUES:
+            if (isWhitelisted(perfJ2eeType, perfDataDict["name"], value, whitelistDict) == True):
+                rtnList.append(makeTuple(perfDataDict, perfName, value))
 
     elif (perfDataDict["classificaton"] == "RangeStatistic"):
-        rtnList.append(makeTuple(perfDataDict, perfName, "highWaterMark"))
-        rtnList.append(makeTuple(perfDataDict, perfName, "lowWaterMark"))
-        rtnList.append(makeTuple(perfDataDict, perfName, "integral"))
-        rtnList.append(makeTuple(perfDataDict, perfName, "mean"))
-        rtnList.append(makeTuple(perfDataDict, perfName, "value"))
+        for value in RANGESTATISTIC_VALUES:
+            if (isWhitelisted(perfJ2eeType, perfDataDict["name"], value, whitelistDict) == True):
+                rtnList.append(makeTuple(perfDataDict, perfName, value))
 
     elif (perfDataDict["classificaton"] == "BoundedRangeStatistic"):
-        rtnList.append(makeTuple(perfDataDict, perfName, "highWaterMark"))
-        rtnList.append(makeTuple(perfDataDict, perfName, "lowWaterMark"))
-        rtnList.append(makeTuple(perfDataDict, perfName, "integral"))
-        rtnList.append(makeTuple(perfDataDict, perfName, "lowerBound"))
-        rtnList.append(makeTuple(perfDataDict, perfName, "upperBound"))
-        rtnList.append(makeTuple(perfDataDict, perfName, "mean"))
-        rtnList.append(makeTuple(perfDataDict, perfName, "value"))
+        for value in BOUNDEDRANGESTATISTIC_VALUES:
+            if (isWhitelisted(perfJ2eeType, perfDataDict["name"], value, whitelistDict) == True):
+                rtnList.append(makeTuple(perfDataDict, perfName, value))
 
     else:
         l.fatal("Invalid classificaton in perfDataDict found: '%s'. Exiting ..." % (
             perfDataDict["classificaton"]))
+        raise Exception
 
     return rtnList
 
 
 @l.logEntryExit
-def getFieldDataTuples(perfDataEntry):
+def getFieldDataTuples(perfDataEntry, whitelistDict = None):
     '''
     returns list of field tuples.
     [ (field1-name, field1-value), (field2-name, field2-value), ... ]
     '''
     statsList = []
     perfDataDictList = perfDataEntry["perfdata"]
+    perfJ2eeType = getJ2eeType(perfDataEntry["tags"], True)
     for stats in perfDataDictList:
-        statsList.extend(getFieldDataHelper(stats))
+        statsList.extend(getFieldDataHelper(stats, perfJ2eeType, whitelistDict))
     return statsList
 
 
@@ -154,22 +246,26 @@ def DummyFormatter():
     def formatTags(tagData):
         return "no tags"
 
-    def formatFields(fieldData):
+    def formatFields(fieldData, whitelistDict=None):
         return "no field data"
 
-    def write(perfDataList, timestamp):
+    def write(perfDataList, timestamp, whitelistDict=None):
         '''
         main formatter function: returns a string of formatted entries
         '''
         entries = []
         for perfEntry in perfDataList:
-            formattedEntry = "{} {} {}".format(
-                formatTimeStamp(timestamp),
-                formatTags(None),
-                formatFields(None)
-            )
-            entries.append(formattedEntry)
-            l.debug(formattedEntry)
+            if (whitelistedJ2eeType(perfEntry, whitelistDict) == True):
+                l.debug("Writing output record as j2eeType is whitelisted")
+                formattedEntry = "{} {} {}".format(
+                    formatTimeStamp(timestamp),
+                    formatTags(None),
+                    formatFields(None, whitelistDict)
+                )
+                entries.append(formattedEntry)
+                l.debug(formattedEntry)
+            else:
+                l.debug("Output record not written as j2eeType: '%s' is not whitelisted" % (perfEntry["tags"]))
         l.verbose("Number of rows returned: %d" % (len(entries)))
         returnedObj = "\n".join(entries)
         return returnedObj
@@ -193,25 +289,29 @@ def SplunkFormatter():
         tagList = ["%s=%s" % (k, v) for (k, v) in getTagDataTuples(perfData)]
         return " ".join(tagList)
 
-    def formatFields(perfData):
-        x = getFieldDataTuples(perfData)
+    def formatFields(perfData, whitelistDict=None):
+        x = getFieldDataTuples(perfData, whitelistDict)
         fieldList = ["%s=%s" % (k, v) for (k, v) in x]
         return " ".join(fieldList)
         # return "count=42 weight=101"
 
-    def write(perfDataList, timestamp):
+    def write(perfDataList, timestamp, whitelistDict=None):
         '''
         main formatter function: returns a string of formatted entries
         '''
         entries = []
         for perfEntry in perfDataList:
-            formattedEntry = "{} {} {}".format(
-                formatTimeStamp(timestamp),
-                formatTags(perfEntry),
-                formatFields(perfEntry)
-                )
-            entries.append(formattedEntry)
-            l.debug(formattedEntry)
+            if (whitelistedJ2eeType(perfEntry, whitelistDict) == True):
+                l.debug("Writing output record as j2eeType is whitelisted")
+                formattedEntry = "{} {} {}".format(
+                    formatTimeStamp(timestamp),
+                    formatTags(perfEntry),
+                    formatFields(perfEntry, whitelistDict)
+                    )
+                entries.append(formattedEntry)
+                l.debug(formattedEntry)
+            else:
+                l.debug("Output record not written as j2eeType: '%s' is not whitelisted" % (perfEntry["tags"]))
 
         l.verbose("Number of rows returned: %d" % (len(entries)))
         returnedObj = "\n".join(entries)
@@ -239,13 +339,13 @@ def InfluxFormatter():
         return ",".join(tagList)
 
 
-    def formatFields(perfData):
-        x = getFieldDataTuples(perfData)
+    def formatFields(perfData, whitelistDict):
+        x = getFieldDataTuples(perfData, whitelistDict)
         fieldList = ["%s=%s" % (k, v) for (k, v) in x]
         return ",".join(fieldList)
         # return "count=42,weight=101"
 
-    def write(perfDataList, timestamp):
+    def write(perfDataList, timestamp, whitelistDict=None):
         '''
         main formatter function: returns a string of formatted entries
         '''
@@ -254,14 +354,19 @@ def InfluxFormatter():
 
         entries = []
         for perfEntry in perfDataList:
-            formattedEntry = "{},{} {} {}".format(
-                getMeasurement(perfEntry),
-                formatTags(perfEntry),
-                formatFields(perfEntry),
-                unixTime
-                )
-            entries.append(formattedEntry)
-            l.debug("Influx formattedEntry: '%s" % (formattedEntry))
+            if (whitelistedJ2eeType(perfEntry, whitelistDict) == True):
+                l.debug("Writing output record as j2eeType is whitelisted")
+                formattedEntry = "{},{} {} {}".format(
+                    getMeasurement(perfEntry),
+                    formatTags(perfEntry),
+                    formatFields(perfEntry, whitelistDict),
+                    unixTime
+                    )
+                entries.append(formattedEntry)
+                l.debug("Influx formattedEntry: '%s" % (formattedEntry))
+            else:
+                l.debug("Output record not written as j2eeType: '%s' is not whitelisted" % (perfEntry["tags"]))
+
 
         l.verbose("Number of rows returned: %d" % (len(entries)))
         returnedObj = "\n".join(entries)
@@ -271,3 +376,4 @@ def InfluxFormatter():
 ##
 ## Some globals
 NODE_SEPARATOR = "|"
+WHITELIST_TAG_KEY = "j2eetype"
