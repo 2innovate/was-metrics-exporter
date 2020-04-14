@@ -88,7 +88,7 @@ def getPortFromUrl(perfServletUrl):
     Returns the port of an Url
     '''
     l.debug("perfServletUrl is: '%s'" % (perfServletUrl))
-    port = re.sub(r"^.*?\/\/.*?:([0-9]*?)(\/.*)?", r"\1", perfServletUrl)
+    port = re.sub(r"^.*?\/\/.*?\:([0-9]+)?(\/)?(.*)", r"\1", perfServletUrl)
     l.debug("port is: '%s'" % (port))
     if (port == perfServletUrl):
         return None
