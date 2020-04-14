@@ -9,6 +9,7 @@ from types import DictType, ListType, IntType
 from utils import options as o
 from utils import logger as l
 from utils import outputFormatter as fmt
+from utils import configReader as cr
 import sys
 reload(sys)
 import os
@@ -47,34 +48,6 @@ def wcvGetTime(sep=""):
 
 
 @l.logEntryExit
-def getUrlSchema(perfServletUrl):
-    '''
-    Returns the schema of an Url
-    '''
-    return re.sub(r"^(.*?):.*", r"\1", perfServletUrl)
-
-
-@l.logEntryExit
-def getHostFromUrl(perfServletUrl):
-    '''
-    Returns the host of an Url
-    '''
-    return re.sub(r"^.*?\/\/(.*?)[:\/].*", r"\1", perfServletUrl)
-
-
-@l.logEntryExit
-def getPortFromUrl(perfServletUrl):
-    '''
-    Returns the port of an Url
-    '''
-    port = re.sub(r"^.*?\/\/.*?:([0-9]*?)\/.*", r"\1", perfServletUrl)
-    if (port == perfServletUrl):
-        return None
-    else:
-        return port
-
-
-@l.logEntryExit
 def getPerfServletData(perfServletUrl, wasUser=None, wasPassword=None):
     '''
     Read the performance servlet data
@@ -85,9 +58,9 @@ def getPerfServletData(perfServletUrl, wasUser=None, wasPassword=None):
     ## Create a password manager for basic authentication
     if ((wasUser != None) and (wasUser != "")):
         passwordMgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
-        urlSchema = getUrlSchema(perfServletUrl)
-        urlHost = getHostFromUrl(perfServletUrl)
-        urlPort = getPortFromUrl(perfServletUrl)
+        urlSchema = o.getUrlSchema(perfServletUrl)
+        urlHost = o.getHostFromUrl(perfServletUrl)
+        urlPort = o.getPortFromUrl(perfServletUrl)
         if (urlPort == None):
             topLevelUrl = urlSchema + "://" + urlHost + "/"
         else:
@@ -319,7 +292,7 @@ def removeSummaryData(perfList):
 
 
 @l.logEntryExit
-def writeToInflux(parmInfluxUrl, parmInfluxDb, parmTargetUser, parmTargetPwd, perfList):
+def writeToInflux(parmInfluxUrl, parmInfluxDb, parmTargetUser, parmTargetPwd, perfList, whitelistDict):
     '''
     writes the data to the influx DB using the write REST API
     '''
@@ -340,7 +313,7 @@ def writeToInflux(parmInfluxUrl, parmInfluxDb, parmTargetUser, parmTargetPwd, pe
     rowCount = 0
     ##
     ## Format the output as a string
-    data = outputFormatter(perfList, outFormat="INFLUX")
+    data = outputFormatter(perfList, outFormat="INFLUX", whitelistDict=whitelistDict)
     l.verbose("formatted influx data: \n%s", data)
     ##
     ## outputFormatter returns a string of the data separated by \n per line
@@ -386,14 +359,18 @@ def outputFormatter(perfList, **kwargs):
     '''
     formats data as specified by outFormat passed in via **kwargs and returns a String. Supported keywords are:
     outFormat
+    whitelistDict
     '''
-    outFormat=None
+    outFormat = None
+    whitelistDict = None
     debugString=""
 
     for key, value in kwargs.items():
         debugString += "'%s'='%s';" % (str(key), str(value))
         if (key == "outFormat"):
             outFormat = value
+        elif(key == "whitelistDict"):
+            whitelistDict = value
         else:
             l.error("Unsupported key '%s' with value '%s' passed. Exiting ..." % (key, value))
             sys.exit(1)
@@ -413,7 +390,7 @@ def outputFormatter(perfList, **kwargs):
         l.fatal("unknown output formatter: %s", outFormat)
 
     timeStamp = time.localtime()
-    return formatFunction(perfList, timeStamp)
+    return formatFunction(perfList, timeStamp, whitelistDict)
 
 
 '''
@@ -435,7 +412,13 @@ def main():
     sysArgv = sys.argv[1:]
     ## Copy the parameter values to the variables
     (parmServletXmlFile, parmPerfServletUrl, parmJsonOutFileName, parmWasCellName, parmNoEmpty, parmReplace, parmOmitSummary, parmInfluxUrl,
-     parmInfluxDb, parmSeconds, parmTargetUser, parmTargetPwd, parmWasUser, parmWasPwd, parmOutFileName, parmOutFormat) = o.parseArguments(WCV_SCRIPTNAME, sysArgv)
+     parmInfluxDb, parmSeconds, parmTargetUser, parmTargetPwd, parmWasUser, parmWasPwd, parmOutFileName, parmOutFormat, parmOutConfigFile) = o.parseArguments(WCV_SCRIPTNAME, sysArgv)
+    ##
+    ## Get the output configuration file if provided
+    whitelistDict = {}
+    if parmOutConfigFile:
+        whitelistDict = cr.readConfig(parmOutConfigFile)
+        whitelistDict = whitelistDict["WHITELIST"]
 
     curDate = str(datetime.datetime.now().date())
     curTime = datetime.datetime.now().strftime("%H:%M:%S")
@@ -494,17 +477,17 @@ def main():
             ##
             ## If we have an influx Db to write to ...
             if ((parmInfluxUrl != None) and (parmInfluxUrl != "")):
-                writeToInflux(parmInfluxUrl, parmInfluxDb, parmTargetUser, parmTargetPwd, perfList)
+                writeToInflux(parmInfluxUrl, parmInfluxDb, parmTargetUser, parmTargetPwd, perfList, whitelistDict)
                 l.info("Data pushed to influx DB")
 
             ##
             ## append to log file in Splunk-like format "TS key1=value1 key2=value2 ..."
             if (parmOutFileName != None):
-                    outFile = open(parmOutFileName, "w")
-                    data = outputFormatter(perfList, outFormat=parmOutFormat)
-                    l.verbose("formatted data: \n%s", data)
-                    outFile.write(data)
-                    outFile.close()
+                outFile = open(parmOutFileName, "w")
+                data = outputFormatter(perfList, outFormat=parmOutFormat, whitelistDict=whitelistDict)
+                l.verbose("formatted data: \n%s", data)
+                outFile.write(data)
+                outFile.close()
 
         ##
         ## If input was a file we break the loop otherwise we sleep
