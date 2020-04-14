@@ -60,16 +60,24 @@ def translateStatName(statName):
 
 
 @l.logEntryExit
-def getJ2eeType(tags, toUpper = False):
+def getJ2eeType(whitelistDict, tags, toUpper = False):
     '''
     Returns the j2eetype of the tags string
     '''
-    keyIndex = TAG_NAMES.index(WHITELIST_TAG_KEY)
+
+    whitelistKeys = whitelistDict.keys()
+    l.debug("whitelist keys are: '%s'" % (str(whitelistKeys)))
     tagsList = tags.split(NODE_SEPARATOR)
-    if (toUpper == True):
-        return tagsList[keyIndex].upper()
-    else:
-        return tagsList[keyIndex]
+    for tag in tagsList:
+        l.debug("Checking if tag '%s' is in whitelistKeys" % (tag))
+        if (tag.upper() in whitelistKeys):
+            if (toUpper == True):
+                return tag.upper()
+            else:
+                return tag
+    ##
+    ## None of the tags is in the whitelist dictionary
+    return None
 
 
 @l.logEntryExit
@@ -80,16 +88,17 @@ def whitelistEntryForJ2eeType(perfDataEntry, whitelistDict = None):
     Returns the whitelist dictionary of the white listed j2eetype
     '''
 
-    keyIndex = TAG_NAMES.index(WHITELIST_TAG_KEY)
     if (whitelistDict):
         whitelistKeys = whitelistDict.keys()
         l.debug("whitelist keys are: '%s'" % (str(whitelistKeys)))
         tagsList = perfDataEntry["tags"].split(NODE_SEPARATOR)
-        if (getJ2eeType(perfDataEntry["tags"], True) in whitelistKeys):
-            l.debug("Returning whitelist dict for j2eetype")
-            return whitelistDict[tagsList[keyIndex].upper()]
-        else:
-            return None
+        for tag in tagsList:
+            l.debug("Checking if tag '%s' is in whitelistKeys" % (tag))
+            if (tag.upper() in whitelistKeys):
+                return whitelistDict[tag.upper()]
+        ##
+        ## None of the tags is in the whitelist dictionary
+        return None
     else:
         ##
         ## No whitelist everything is added to the output
@@ -228,7 +237,7 @@ def getFieldDataTuples(perfDataEntry, whitelistDict = None):
     '''
     statsList = []
     perfDataDictList = perfDataEntry["perfdata"]
-    perfJ2eeType = getJ2eeType(perfDataEntry["tags"], True)
+    perfJ2eeType = getJ2eeType(whitelistDict, perfDataEntry["tags"], True)
     for stats in perfDataDictList:
         statsList.extend(getFieldDataHelper(stats, perfJ2eeType, whitelistDict))
     return statsList
@@ -376,4 +385,3 @@ def InfluxFormatter():
 ##
 ## Some globals
 NODE_SEPARATOR = "|"
-WHITELIST_TAG_KEY = "j2eetype"
