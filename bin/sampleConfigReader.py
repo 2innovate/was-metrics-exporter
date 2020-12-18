@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import os
-from utils import configReader
+from lib import configReader
 
 configMap = configReader.readConfig("/home/hhuebler/data/2i/git/cvtPmiDta/scripts/whitelist.config")
 

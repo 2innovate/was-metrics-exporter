@@ -29,7 +29,7 @@ A *white-list configuration* is being processed based on the *j2eetype* with the
 - If a *j2eetype* is not defined in the config file, no values will be added to the output.
 - if a *j2eetype* is defined in the config file and specific values are configured, then only these values will be added
 
-A sample [while-list](scripts/whitelist.config) configuration file can be found in the scripts directory.
+A sample [while-list](bin/whitelist.config) configuration file can be found in the scripts directory.
 
 
 ### Invoking the script
