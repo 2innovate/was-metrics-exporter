@@ -28,36 +28,39 @@ def printUsage(scriptName):
                         [ --cell|-c <was_cell_name>]
 
                         [ --json|-j <json_outfile>]
-                        [--noempty|-n]
-                        [--omitSummary|-o ]
+                        [--noempty|-n]  [--omitSummary|-o ]
 
-                        [--influxUrl|-i <url> --influxDb|-d <dbName>]  [-U|--targetUser <user> -P|--targetPwd <password>]
+                        [--influxUrl|-i <url> --influxDb|-d <dbName>]  [-U|--targetUser <user> -P|--targetPwd <password> ]
 
                         [ --outputFile <file-name> ]
                         [ --outputFormat  {{ "JSON" | "SPLUNK" | "DUMMY" }} ]
-                        [ --replace|-r]
-                        [ --outputConfig <config-file-name> ]
+                        [ --replace|-r ]
+                        [ --outputConfig <whitelist-config filename> ]
 
     whereby:
-        <perfServletXmlFile>    name of the file with the WAS performance servlet output. Mutual exclusise with <perfServletXmlFile>"
-        <perfServletUrl>        full URL of the performance servlet to get the data. For example:"
-                                    http://<host>:<port>/wasPerfTool/servlet/perfservlet?node=<nodeName>&server=<serverName>&module=connectionPoolModule+jvmRuntimeModule"
-        <seconds>               interval in seconds between fetching <perfServletUrl>"
-        <json_outfile>          name of the file to which the JSON output will be written"
+        --xml |-x              name of the file containing WAS performance servlet output. Mutual exclusive with --url.
+        --url | -u             full URL of the performance servlet to get the data. For example:
+                                    http://<host>:<port>/wasPerfTool/servlet/perfservlet?node=<nodeName>&server=<serverName>&module=connectionPoolModule+jvmRuntimeModule
+        <seconds>              interval in seconds for fetching <perfServletUrl>
+        <json_outfile>         name of the output file for JSON output
 
-    optional:"
-        <was_cell_name>         name of the WAS cell being used as the root of the tags. Defaults to: \"cell\""
-        <--noempty|-n>          remove empty metrics. Defaults to false"
-        <--replace|-r>          replace the <json_outfile> if the file exists. Defaults to false"
-        <--omitSummary|-o>      omit summary measurement like for example measurement for JDBC providers"
-        <--influxUrl|-i>        rest URL for InfluxDb to which data should be posted"
-        <--influxDb|-d>         influxDb database to which data should be posted. You might attach a retention policy like: \n\t\t\t\t\t\t\"CREATE RETENTION POLICY TWO_WEEKS ON pmidata DURATION 2w REPLICATION 1\""
-        <--targetUser|-U>       user name to authenticate on the target platform (for example influxDb)"
-        <--targetPwd|-d>        password being used to authenticate on the target platform (for example influxDb)"
-        <--wasUser>             user name to authenticate against WebSphere to retrieve the performance servlet data"
-        <--wasPassword>         password to authenticate against WebSphere to retrieve the performance servlet data"
-        <--outputFile>          output filename"
-        <--outputConfig>        configuration file name to configure output columns"
+    optional:
+        --cell        | -c     name of the WAS cell being used as the root of all tags. Defaults to: "cell"
+        --noempty     | -n     remove empty metrics. Defaults to false
+        --replace     | -r     replace the <json_outfile> if the file exists. Defaults to false
+        --omitSummary | -o     omit summary measurement like for example measurement for JDBC providers
+
+        --influxUrl   | -i     rest URL for InfluxDb to which data should be posted
+        --influxDb    | -d     influxDb database to which data should be posted. You might attach a retention policy like: 
+                                  "CREATE RETENTION POLICY TWO_WEEKS ON pmidata DURATION 2w REPLICATION 1"
+        --targetUser  | -U     user name to authenticate on the target platform (for example influxDb)
+        --targetPwd   | -P     password being used to authenticate on the target platform (for example influxDb)
+
+        --wasUser              user name to authenticate against WebSphere to retrieve the performance servlet data
+        --wasPassword          password to authenticate against WebSphere to retrieve the performance servlet data
+
+        --outputFile           output filename
+        --outputConfig         configuration filename to configure output columns ( eg. whitelist.config )
     """
     print(usageStr.format(scriptName=scriptName))
 
