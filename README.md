@@ -14,9 +14,9 @@ The idea of this project is to provide a tool to fetch and transform PMI data fr
   (mainly used for debugging offline without a running WAS server)
 
 ### Outputs
-Currenlty we are supporting the following XML data conversions:
+Currently we are supporting the following XML data conversions:
 - Output to a JSON file (complete output of the performance servlet data in JSON format)
-- Direct output to InfluxDb via REST API if proper Influx Db parameters are passed
+- Direct output to InfluxDb via REST API if proper InfluxDb parameters are passed
 - Output to a text-file that is easy to parse by a Splunk collector (key=value pairs)
 
 ### Output configuration (white-listing metrics)
