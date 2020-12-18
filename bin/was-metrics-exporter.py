@@ -498,7 +498,7 @@ def main():
                 l.debug("sleeping '%d' seconds" % (parmSeconds))
                 time.sleep(parmSeconds)
             else:
-                l.info("No valid sleep time (--seconds|-s)provided --> exiting")
+                l.info("No valid sleep time (--seconds|-s) provided --> exiting")
                 break
         ##
         ## Get the current date / time for the check if we've reached the stoptime .. i.e. time to exit

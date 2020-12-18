@@ -28,12 +28,12 @@ def printUsage(scriptName):
                         [ --cell|-c <was_cell_name>]
 
                         [ --json|-j <json_outfile>]
-                        [--noempty|-n]  [--omitSummary|-o ]
+                        [ --noempty|-n]  [--omitSummary|-o ]
 
-                        [--influxUrl|-i <url> --influxDb|-d <dbName>]  [-U|--targetUser <user> -P|--targetPwd <password> ]
+                        [ --influxUrl|-i <url> --influxDb|-d <dbName>]  [-U|--targetUser <user> -P|--targetPwd <password> ]
 
                         [ --outputFile <file-name> ]
-                        [ --outputFormat  {{ "JSON" | "SPLUNK" | "DUMMY" }} ]
+                        [ --outputFormat  {{ "INFLUX" | "SPLUNK" | "DUMMY" }} ]
                         [ --replace|-r ]
                         [ --outputConfig <whitelist-config filename> ]
 
@@ -41,8 +41,8 @@ def printUsage(scriptName):
         --xml |-x              name of the file containing WAS performance servlet output. Mutual exclusive with --url.
         --url | -u             full URL of the performance servlet to get the data. For example:
                                     http://<host>:<port>/wasPerfTool/servlet/perfservlet?node=<nodeName>&server=<serverName>&module=connectionPoolModule+jvmRuntimeModule
-        <seconds>              interval in seconds for fetching <perfServletUrl>
-        <json_outfile>         name of the output file for JSON output
+        --seconds | -s         interval in seconds for fetching <perfServletUrl>
+        --json    | -j         filename for JSON output. Use for simple XML-2-JSON conversion.
 
     optional:
         --cell        | -c     name of the WAS cell being used as the root of all tags. Defaults to: "cell"
@@ -60,13 +60,15 @@ def printUsage(scriptName):
         --wasPassword          password to authenticate against WebSphere to retrieve the performance servlet data
 
         --outputFile           output filename
+        --outputFormat         valid formats; "INFLUX", "SPLUNK", "DUMMY"
         --outputConfig         configuration filename to configure output columns ( eg. whitelist.config )
     """
     print(usageStr.format(scriptName=scriptName))
 
 
 SHORTOPTS = "hx:j:c:nri:d:u:os:U:P:f:O:"
-LONGOPTS = ["help", "xml=", "json=", "cell=", "noempty", "replace", "influxUrl=", "influxDb=", "url=", "omitSummary", "seconds=", "targetUser=", "targetPwd=", "wasUser=", "wasPassword=", "outputFile=", "outputFormat=", "outputConfig="]
+LONGOPTS = ["help", "xml=", "json=", "cell=", "noempty", "replace", "influxUrl=", "influxDb=", "url=", "omitSummary", "seconds=", 
+            "targetUser=", "targetPwd=", "wasUser=", "wasPassword=", "outputFile=", "outputFormat=", "outputConfig="]
 
 
 @l.logEntryExit
@@ -386,7 +388,7 @@ def checkParm(parmDict, scriptName):
             raise Exception, 'Output config file "%s" does not exist' % outputConfig
 
     if outputFormat:
-        OUTPUT_FORMAT_LIST = ["SPLUNK", "JSON", "DUMMY"]
+        OUTPUT_FORMAT_LIST = ["SPLUNK", "INFLUX", "DUMMY"]
         if outputFormat.upper() not in OUTPUT_FORMAT_LIST:
             raise Exception, 'output format must be on of: %s' % OUTPUT_FORMAT_LIST
     ##
