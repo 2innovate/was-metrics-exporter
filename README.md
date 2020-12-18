@@ -8,7 +8,7 @@ The idea of this project is to provide a tool to fetch and transform PMI data fr
 
 ### Inputs
 `was-metrics-exporter` can read the XML data from either:
-- a file to which the performance servlet data was exported to previously
+- a file to which the performance servlet data was previously exported to 
   (mainly used for debugging offline without a running WAS server)
 - an URL from which the XML PMI data can be fetched.  
   This option allows to retrieve the data in a specified interval.
@@ -17,7 +17,7 @@ The idea of this project is to provide a tool to fetch and transform PMI data fr
 Currenlty we are supporting the following XML data conversions:
 - Output to a JSON file (complete output of the performance servlet data in JSON format)
 - Direct output to InfluxDb via REST API if proper Influx Db parameters are passed
-- Output to a file format that is easy to parse by a Splunk collector (key=value pairs)
+- Output to a text-file that is easy to parse by a Splunk collector (key=value pairs)
 
 ### Output configuration (white-listing metrics)
 While the JSON file output always contains the full performance servlet PMI data, the output for Influx DB and Splunk can be granuarly configured to output only specific values for selected metrics. This allows to reduce the output to the minimum.  
@@ -29,7 +29,7 @@ A *white-list configuration* is being processed based on the *j2eetype* with the
 - If a *j2eetype* is not defined in the config file, no values will be added to the output.
 - if a *j2eetype* is defined in the config file and specific values are configured, then only these values will be added
 
-A sample [while-list](scripts/whilelist.config) configuration file can be found in the scripts directory.
+A sample [while-list](scripts/whitelist.config) configuration file can be found in the scripts directory.
 
 
 ### Invoking the script
