@@ -62,7 +62,8 @@ def translateStatName(statName):
 @l.logEntryExit
 def getJ2eeType(whitelistDict, tags, toUpper = False):
     '''
-    Returns the j2eetype of the tags string
+    Returns the j2eetype of the tags string if any of the tags in the tags tokens is whitelisted. It returns the first
+    whitelisted tag of the tags token string which looks like: 'cell|wp04Node|WebSphere_Portal|server|JDBC Connection Pools|wpdbJDBC_db2|jdbc/ladbDS'
     '''
 
     whitelistKeys = whitelistDict.keys()
@@ -70,7 +71,7 @@ def getJ2eeType(whitelistDict, tags, toUpper = False):
     tagsList = tags.split(NODE_SEPARATOR)
     for tag in tagsList:
         l.debug("Checking if tag '%s' is in whitelistKeys" % (tag))
-        if (tag.upper() in whitelistKeys):
+        if ((len(whitelistKeys) == 0) or (tag.upper() in whitelistKeys)):
             if (toUpper == True):
                 return tag.upper()
             else:
